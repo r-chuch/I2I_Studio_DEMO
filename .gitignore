@@ -14,3 +14,4 @@ test.py
 /app/templates/t_index.html
 /app/templates/project.html
 /app/output_data/
+/.gemini/
