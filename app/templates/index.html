@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <!-- 引入 Marked.js 用於 Markdown 渲染 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- 引入 html2pdf.js 用於 PDF 下載 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+TC:wght@100..900&display=swap');
@@ -189,6 +191,24 @@
         }
         .proposal-content tr:hover {
             background-color: #edf2f7; /* 滑鼠懸停效果 */
+        }
+
+        /* --- 新增：PDF 輸出分頁優化 CSS --- */
+        @media print {
+            .proposal-paper {
+                box-shadow: none;
+                margin: 0;
+                width: 100%;
+            }
+        }
+        /* 強制避免元素內部分頁 */
+        .proposal-content h1, 
+        .proposal-content h2, 
+        .proposal-content h3,
+        .proposal-content table,
+        .proposal-content tr,
+        .proposal-content li {
+            page-break-inside: avoid; 
         }
     </style>
 
@@ -550,6 +570,10 @@
                                 <svg class="w-8 h-8 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14c2.21 0 4-1.79 4-4V7c0-2.21-1.79-4-4-4S8 4.79 8 7v3c0 2.21 1.79 4 4 4zm-4 7h8m-4-7v7m0-7V7"></path></svg>
                                 Agent 3 (優化代理人): 六頂思考帽審視
                             </h3>
+                            <!-- 
+                                修改點：移除六頂思考帽輸入框的 required 屬性，
+                                讓使用者可以選擇性填寫，不必強制全部填滿。
+                            -->
                             <div class="grid md:grid-cols-2 gap-6">
                                 {% set hats = [
                                     ('白帽 (事實)', 'white', 'bg-gray-50', 'border-gray-500', 'hat_white_hat'),
@@ -593,6 +617,7 @@
                                         </div>
                                         {% endif %}
 
+                                        <!-- 此處移除了 required 屬性 -->
                                         <textarea id="input-{{ field_name }}" name="{{ field_name }}" rows="3" class="w-full border border-gray-300 p-2 rounded text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white/80" placeholder="請輸入您的看法..."></textarea>
                                     </div>
                                 {% endfor %}
@@ -626,8 +651,10 @@
                                 <h3 class="text-xl font-bold text-gray-600 uppercase tracking-wider flex items-center">
                                     <i class="fas fa-file-alt mr-2"></i> 一頁式企畫書 (One-Page Proposal)
                                 </h3>
-                                <!-- 未來可擴充：列印或下載按鈕 -->
-                                <!-- <button class="text-sm bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-50 text-gray-600"><i class="fas fa-print mr-1"></i> 列印</button> -->
+                                <!-- 下載按鈕 -->
+                                <button onclick="downloadPDF()" class="text-sm bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-50 text-gray-600 font-semibold shadow-sm transition">
+                                    <i class="fas fa-file-download mr-1"></i> 下載 PDF
+                                </button>
                             </div>
                             
                             <!-- 模擬 A4 紙張 -->
@@ -682,6 +709,35 @@
                 }
             }
         });
+
+        // --- Stage 5: Download PDF ---
+        function downloadPDF() {
+            // 選取要轉成 PDF 的元素
+            const element = document.querySelector('.proposal-paper');
+            
+            // 設定選項
+            const opt = {
+                margin:       [15, 15, 15, 15], // 上右下左邊距 (mm) - 增加邊距避免貼邊
+                filename:     'one-page-proposal.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { 
+                    scale: 2,       // 提高解析度 (2=Retina)
+                    useCORS: true,  // 允許跨域圖片 (如 FontAwesome)
+                    scrollY: 0      // 修正捲動偏移問題
+                },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                // 新增：智慧分頁設定
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] } 
+            };
+
+            // 執行轉換與下載
+            // html2pdf 是全域變數，來自 CDN
+            // 使用 then/catch 來捕捉可能的錯誤
+            html2pdf().set(opt).from(element).save().catch(err => {
+                console.error("PDF generation failed:", err);
+                alert("PDF 生成失敗，請檢查 console 訊息。");
+            });
+        }
 
         // --- Stage 2 & 3: 顯示/隱藏提示 ---
         function toggleHint(id) {
