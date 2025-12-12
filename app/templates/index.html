@@ -1,0 +1,761 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <!-- 確保 Tailwind 樣式可用 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Font Awesome 用於圖標 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+TC:wght@100..900&display=swap');
+        
+        .innovator-container {
+            font-family: 'Noto Sans TC', 'Inter', sans-serif;
+            background-color: #f7fafc;
+        }
+        .step-active {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .hat-card {
+            border-left-width: 6px;
+            transition: transform 0.2s;
+        }
+        .hat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .progress-step-button {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .progress-step-locked {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .whys-input {
+            border-radius: 0.5rem;
+            border: 2px solid #ccc;
+            padding: 0.75rem;
+            width: 100%;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+            min-height: 80px;
+            background-color: white;
+        }
+        .solution-card {
+            border-width: 2px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .solution-card.selected {
+            border-color: #10b981; /* green-500 */
+            background-color: #f0fdf4; /* green-50 */
+        }
+        .solution-card:not(.selected) {
+            border-color: #e5e7eb; /* gray-200 */
+            background-color: white;
+        }
+        
+        /* 提示框動畫 */
+        .hint-box {
+            transition: all 0.3s ease-in-out;
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+        }
+        .hint-box.show {
+            max-height: 300px;
+            opacity: 1;
+            margin-bottom: 1rem;
+            overflow-y: auto;
+        }
+
+        /* Random Word Card Animation */
+        .word-fade-enter {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        .word-fade-enter-active {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 300ms, transform 300ms;
+        }
+        
+        /* Loading Spinner */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+
+    <div class="innovator-container min-h-screen p-4 md:p-8">
+        <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-2xl overflow-hidden">
+            
+            <!-- Header -->
+            <header class="p-6 bg-indigo-700 text-white flex items-center justify-between">
+                <h1 class="text-3xl font-extrabold tracking-tight">
+                    I2I Studio | <span class="text-indigo-200 font-light">The Innovator</span>
+                </h1>
+                <div class="text-sm">建構於創造力理論的 AI 多代理議題洞察與創意激發平台</div>
+            </header>
+
+            <!-- Flash 訊息提示 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="p-6 pb-0">
+                    {% for category, message in messages %}
+                        <div class="p-4 rounded-md shadow-sm text-white {% if category == 'error' %}bg-red-500{% elif category == 'warning' %}bg-yellow-500{% else %}bg-green-500{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Main Workflow Container -->
+            <div class="p-8">
+
+                <!-- Progress Indicator (5 Stages) -->
+                <div class="flex justify-between items-center mb-10 relative">
+                    <div class="absolute inset-x-0 top-3 h-1 bg-gray-200 z-0"></div>
+                    
+                    {% set steps = [
+                        ('影片', 1), 
+                        ('痛點', 2), 
+                        ('靈感激發', 3), 
+                        ('優化', 4), 
+                        ('新想法', 5)
+                    ] %}
+                    
+                    {% for name, num in steps %}
+                        {% set is_active = current_stage == num %}
+                        {% set is_unlocked = num <= max_stage %}
+                        
+                        <div class="flex flex-col items-center z-10 w-1/5">
+                            {% if is_unlocked %}
+                                <a href="{{ url_for('main.index', stage=num) }}" class="progress-step-button">
+                                    {% if is_active %}
+                                        <div class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-lg ring-4 ring-indigo-300 step-active">{{ num }}</div>
+                                    {% else %}
+                                        <div class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-sm">✓</div>
+                                    {% endif %}
+                                </a>
+                                <span class="mt-2 text-sm font-bold {% if is_active %}text-indigo-700{% else %}text-gray-700{% endif %}">
+                                    {{ num }}. {{ name }}
+                                </span>
+                            {% else %}
+                                <div class="progress-step-locked">
+                                    <div class="w-8 h-8 rounded-full bg-gray-300 text-gray-500 flex items-center justify-center font-bold text-sm">{{ num }}</div>
+                                </div>
+                                <span class="mt-2 text-sm text-gray-400">
+                                    {{ num }}. {{ name }}
+                                </span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Main Content Area -->
+                <div class="space-y-8" id="main-content-area">
+
+                    <!-- Stage 1: 影片輸入 -->
+                    {% if current_stage == 1 %}
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-xl">
+                        <h2 class="text-2xl font-bold text-indigo-700 mb-4">
+                            <span class="text-indigo-500">階段 1：</span>影片連結輸入
+                        </h2>
+                        <p class="text-gray-600 mb-6">
+                            請輸入您想分析的 YouTube 影片連結，Agent 1 將啟動洞察提取。
+                        </p>
+                        <form action="{{ url_for('main.analyze_video') }}" method="POST">
+                            <div class="flex space-x-4">
+                                <input type="url" name="youtube_url" placeholder="https://www.youtube.com/watch?v=..." required 
+                                       value="{{ data.video_url | default('') }}"
+                                       class="flex-grow border border-gray-300 p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-200">
+                                    啟動 Agent 1 洞察提取 →
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    <!-- Stage 2: 痛點確認 -->
+                    {% if current_stage == 2 %}
+                    <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-xl">
+                        <div class="mb-6 bg-gray-50 p-4 rounded-lg border-l-4 border-indigo-500">
+                            <h3 class="text-lg font-bold text-gray-800 mb-1">影片標題: <span class="text-indigo-600">{{ data.video_title | default('N/A') }}</span></h3>
+                            <p class="text-sm text-gray-500 mb-2">已分析影片網址: {{ data.video_url }}</p>
+                            <p class="text-gray-600 text-sm italic">{{ data.summary | default('') }}</p>
+                        </div>
+                        
+                        <form action="{{ url_for('main.confirm_painpoints') }}" method="POST">
+                            <h2 class="text-2xl font-bold text-indigo-700 mb-6">
+                                <span class="text-indigo-500">痛點確認：</span>3 WHYS 深度挖掘
+                            </h2>
+
+                            {% if data.whys %}
+                                {% for why in data.whys %}
+                                <div class="mb-8 border-b border-gray-100 pb-6 last:border-0">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <p class="text-lg font-bold text-gray-800">
+                                            <span class="text-indigo-500 mr-2">Q{{ why.id }}:</span>{{ why.question }}
+                                        </p>
+                                    </div>
+
+                                    <div class="flex space-x-3 mb-2">
+                                        <button type="button" onclick="toggleHint('hint-why-{{ why.id }}')" 
+                                                class="text-xs bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1 rounded-full flex items-center transition">
+                                            <i class="fas fa-lightbulb mr-1"></i> 顯示提示
+                                        </button>
+                                        <button type="button" 
+                                                data-suggestion="{{ why.suggestion | replace('\n', ' ') | replace("'", "&#39;") | replace('"', '&quot;') }}"
+                                                onclick="useSuggestion('input-why-{{ why.id }}', this.getAttribute('data-suggestion'))" 
+                                                class="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-3 py-1 rounded-full flex items-center transition">
+                                            <i class="fas fa-magic mr-1"></i> 使用建議回覆
+                                        </button>
+                                    </div>
+
+                                    <div id="hint-why-{{ why.id }}" class="hint-box bg-yellow-50 border border-yellow-200 p-3 rounded-md text-sm text-yellow-800">
+                                        <strong>💡 思考方向：</strong> {{ why.hint }}
+                                    </div>
+
+                                    <textarea id="input-why-{{ why.id }}" name="q{{ why.id }}_answer" rows="3" 
+                                              class="whys-input shadow-inner focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400" 
+                                              placeholder="請輸入您的看法..." required>{{ data.why_answers[loop.index0] if data.why_answers else '' }}</textarea>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="p-4 bg-red-100 text-red-700 rounded">
+                                    無法載入問題，請返回上一頁重試。
+                                </div>
+                            {% endif %}
+
+                            <div class="mt-8 flex justify-end">
+                                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-200 shadow-md">
+                                    確認痛點並進入「靈感激發」階段 →
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    <!-- Stage 3: 靈感激發 (分流處理) -->
+                    {% if current_stage == 3 %}
+                        
+                        <!-- 子階段 A: 顯示痛點 + 選擇解決方案 (當 data.scamper_questions 不存在時) -->
+                        {% if not data.scamper_questions %}
+                        <form action="{{ url_for('main.generate_scamper') }}" method="POST">
+                            <div class="space-y-6">
+                                <!-- 痛點展示區 -->
+                                <div class="bg-gray-50 p-6 rounded-lg border-l-4 border-indigo-500 shadow-md">
+                                    <h2 class="text-xl font-bold text-gray-800 mb-2">
+                                        <span class="text-indigo-600">已識別痛點：</span>
+                                    </h2>
+                                    <p class="text-lg italic text-gray-600">
+                                        {{ data.pain_point }}
+                                    </p>
+                                </div>
+
+                                <!-- 相似應用選擇區 -->
+                                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-lg">
+                                    <h3 class="text-xl font-bold text-indigo-700 mb-4 flex items-center">
+                                        <svg class="w-6 h-6 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.433 9.35 5 7.85 5H5c-.65 0-1 .35-1 1s.35 1 1 1h2.85c1.5 0 2.982.433 4.15 1.253M12 6.253c1.168.82 2.65 1.253 4.15 1.253H19c.65 0 1-.35 1-1s-.35-1-1-1h-2.85c-1.5 0-2.982-.433-4.15-1.253M12 19.253v-13"></path></svg>
+                                        Agent 2: 相似應用與參考解方 (請選擇一項)
+                                    </h3>
+                                    <p class="text-sm text-gray-500 mb-4">選擇一個您覺得最有趣的現有解方，Agent 2 將為您生成專屬的創意引導問題。</p>
+                                    
+                                    <div class="grid md:grid-cols-3 gap-4 text-sm" id="solution-selector">
+                                        {% for solution in data.solutions %}
+                                        <div id="{{ solution.id }}" class="solution-card p-4 rounded-lg shadow-md hover:shadow-lg transition duration-150" onclick="selectSolution('{{ solution.id }}')">
+                                            <div class="flex items-start">
+                                                <input type="radio" name="selected_solution" id="radio-{{ solution.id }}" value="{{ solution.id }}" class="form-radio h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500 mt-1" required>
+                                                <label for="radio-{{ solution.id }}" class="font-semibold text-gray-700 ml-2 cursor-pointer">{{ solution.name }}</label>
+                                            </div>
+                                            <!-- 若有描述可放這裡，目前 prompt 僅回傳名詞 -->
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <div class="mt-8 flex justify-end">
+                                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-200 shadow-md">
+                                            確認選擇並生成 SCAMPER 引導 →
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                        
+                        <!-- 子階段 B: 顯示 SCAMPER 問題 + 強制連結 (當 data.scamper_questions 存在時) -->
+                        {% else %}
+                        <form action="{{ url_for('main.generate_concept') }}" method="POST" onsubmit="return validateConceptForm(event)">
+                            <div class="space-y-6">
+                                <!-- 頂部資訊列 -->
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div class="bg-gray-100 p-4 rounded-lg border-l-4 border-gray-400">
+                                        <h4 class="text-sm font-bold text-gray-500">當前痛點</h4>
+                                        <p class="text-gray-800">{{ data.pain_point }}</p>
+                                    </div>
+                                    <div class="bg-indigo-50 p-4 rounded-lg border-l-4 border-indigo-500">
+                                        <h4 class="text-sm font-bold text-indigo-500">參考解方 (SCAMPER 對象)</h4>
+                                        <p class="text-indigo-900 font-bold">{{ data.selected_solution_name }}</p>
+                                    </div>
+                                </div>
+
+                                <!-- SCAMPER 填寫區 -->
+                                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-lg">
+                                    <h3 class="text-xl font-bold text-indigo-700 mb-4 flex items-center">
+                                        <svg class="w-6 h-6 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 7h14c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V9c0-1.1.9-2 2-2zm0 4h14"></path></svg>
+                                        Agent 2: 結構性發想 - SCAMPER
+                                    </h3>
+                                    <p class="text-sm text-gray-500 mb-6">請針對下列維度進行發想，不需要每一題都填寫，專注於有靈感的項目即可。</p>
+                                    
+                                    <div class="grid gap-6 text-sm">
+                                        <!-- SCAMPER 定義對照表 -->
+                                        {% set scamper_definitions = {
+                                            'S': '替代 (Substitute): 有什麼成分、規則、受眾或技術可以被替代？',
+                                            'C': '合併 (Combine): 能與什麼功能、外部服務或異業合併？', 
+                                            'A': '調適 (Adapt): 有什麼可以借用或調整？(想法、功能)',
+                                            'M': '修改 (Modify): 改變形狀、屬性、大小或體驗流程會如何？',
+                                            'P': '他用 (Put to other uses): 這個解方還能用在什麼完全不同的場景或對象？',
+                                            'E': '消除 (Eliminate): 有什麼非核心的功能、成本或步驟可以剔除以簡化體驗？',
+                                            'R': '重組 (Reverse): 如果把流程倒過來做，或重新安排因果順序會怎樣？'
+                                        } %}
+                                        
+                                        {% for tag, item in data.scamper_questions.items() %}
+                                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                            <!-- 標題：固定定義 -->
+                                            <div class="mb-3">
+                                                <span class="font-mono bg-yellow-200 text-yellow-800 px-2 py-1 rounded mr-2 text-xs font-bold">{{ tag }}</span>
+                                                <span class="text-gray-900 font-bold text-base">{{ scamper_definitions[tag] }}</span>
+                                            </div>
+
+                                            <!-- 功能按鈕列 -->
+                                            <div class="flex space-x-3 mb-3">
+                                                <button type="button" onclick="toggleHint('hint-scamper-{{ tag }}')" 
+                                                        class="text-xs bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1 rounded-full flex items-center transition">
+                                                    <i class="fas fa-lightbulb mr-1"></i> 提示 (AI 問題)
+                                                </button>
+                                                <!-- 修正：使用單引號並跳脫，避免與 HTML 屬性雙引號衝突 -->
+                                                <button type="button" 
+                                                        data-suggestion="{{ item.suggestion | replace('\n', ' ') | replace("'", "&#39;") | replace('"', '&quot;') }}"
+                                                        onclick="useSuggestion('input-scamper-{{ tag }}', this.getAttribute('data-suggestion'))" 
+                                                        class="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-3 py-1 rounded-full flex items-center transition">
+                                                    <i class="fas fa-magic mr-1"></i> 建議回覆
+                                                </button>
+                                            </div>
+
+                                            <!-- 隱藏的提示區塊 (AI 生成的具體 Question) -->
+                                            <div id="hint-scamper-{{ tag }}" class="hint-box bg-yellow-50 border border-yellow-200 p-3 rounded-md text-sm text-yellow-800 italic">
+                                                <strong>AI 引導提問：</strong> {{ item.question }}
+                                            </div>
+
+                                            <!-- 輸入框 -->
+                                            <input id="input-scamper-{{ tag }}" type="text" name="scamper_{{ tag | lower }}" placeholder="您的想法..." class="w-full border border-gray-300 p-3 rounded focus:ring-indigo-500 focus:border-indigo-500 mt-1 scamper-input">
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+
+                                <!-- 強力連結 與 初步概念 -->
+                                <div class="grid lg:grid-cols-3 gap-6">
+                                    <!-- 強制連結卡片 (修改為單字顯示 + 切換按鈕) -->
+                                    <div class="lg:col-span-1 bg-gradient-to-br from-pink-500 to-rose-600 p-6 rounded-xl shadow-2xl flex flex-col justify-between min-h-[300px]">
+                                        <div>
+                                            <h3 class="text-xl font-bold text-white mb-2">強制連結 (Random Words)</h3>
+                                            <p class="text-pink-100 text-sm">試著將這個詞彙與您的解方強行關聯：</p>
+                                        </div>
+                                        
+                                        <!-- 單字顯示區 -->
+                                        <div class="flex-grow flex items-center justify-center py-8">
+                                            <div id="random-word-display" class="bg-white/20 backdrop-blur-md rounded-lg p-6 w-full text-center border border-white/30 transform transition-all duration-300">
+                                                <span id="current-random-word" class="text-4xl font-extrabold text-white tracking-widest drop-shadow-md">
+                                                    準備中...
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <!-- 切換按鈕 -->
+                                        <button type="button" onclick="nextRandomWord()" class="w-full bg-white text-rose-600 hover:bg-gray-100 font-bold py-2 px-4 rounded-full shadow transition flex items-center justify-center">
+                                            <i class="fas fa-dice mr-2"></i> 換一個詞
+                                        </button>
+                                    </div>
+
+                                    <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-lg flex flex-col justify-between">
+                                        <div>
+                                            <h3 class="text-xl font-bold text-indigo-700 mb-4 flex items-center">
+                                                <svg class="w-6 h-6 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                                您的初步概念 (Draft Concept)
+                                            </h3>
+                                            <p class="text-sm text-gray-500 mb-2">整合上方的 SCAMPER 點子與強制連結靈感，描述您的新產品概念。</p>
+                                            
+                                            <!-- 新增：AI 靈感助手按鈕 -->
+                                            <div class="flex justify-end mb-2">
+                                                <button type="button" onclick="generateAIConcept()" id="btn-ai-assist" class="text-sm bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1 rounded-full flex items-center transition border border-purple-300">
+                                                    <span id="ai-btn-icon"><i class="fas fa-robot mr-1"></i></span>
+                                                    <span id="ai-btn-text">✨ AI 幫我優化概念</span>
+                                                    <div id="ai-btn-loader" class="loader ml-2 hidden" style="width: 14px; height: 14px; border-width: 2px;"></div>
+                                                </button>
+                                            </div>
+
+                                            <textarea id="user-concept-input" name="user_prelim_concept" placeholder="例如：結合番茄鐘App與遊戲化機制，開發一套..." rows="6" 
+                                                      class="w-full border border-gray-300 p-3 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500">{{ data.user_prelim_concept | default('') }}</textarea>
+                                        
+                                            <!-- 新增：AI 生成結果顯示區 -->
+                                            <div id="ai-concept-result" class="hidden mt-3 p-4 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-900 relative">
+                                                <h5 class="font-bold text-purple-700 mb-1"><i class="fas fa-lightbulb mr-1"></i> AI 建議概念：</h5>
+                                                <p id="ai-concept-text" class="whitespace-pre-line"></p>
+                                                <button type="button" onclick="document.getElementById('ai-concept-result').classList.add('hidden')" class="absolute top-2 right-2 text-purple-400 hover:text-purple-600">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <button type="submit" class="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-200">
+                                            產生初步概念並進入「優化」階段 →
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                        {% endif %} <!-- End of Stage 3 sub-stage check -->
+
+                    {% endif %}
+
+                    <!-- Stage 4: 優化 -->
+                    {% if current_stage == 4 %}
+                    <form action="{{ url_for('main.optimize_proposal') }}" method="POST">
+                        <div class="bg-indigo-50 p-6 rounded-lg border-l-4 border-indigo-500 shadow-md mb-8">
+                            <h2 class="text-xl font-bold text-gray-800 mb-2">
+                                <span class="text-indigo-600">待優化概念：</span>
+                            </h2>
+                            <p class="text-lg italic text-gray-600 text-justify leading-relaxed">
+                                {{ data.refined_concept | default(data.user_prelim_concept) }}
+                            </p>
+                            <!-- 可以顯示是否由 AI 優化過 -->
+                            {% if data.refined_concept and data.refined_concept != data.user_prelim_concept %}
+                                <p class="text-xs text-indigo-400 mt-2 text-right flex justify-end items-center">
+                                    <i class="fas fa-check-circle mr-1"></i> 已由 AI (Agent 3) 協助潤飾概念
+                                </p>
+                            {% endif %}
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-xl">
+                            <h3 class="text-2xl font-bold text-indigo-700 mb-6 flex items-center">
+                                <svg class="w-8 h-8 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14c2.21 0 4-1.79 4-4V7c0-2.21-1.79-4-4-4S8 4.79 8 7v3c0 2.21 1.79 4 4 4zm-4 7h8m-4-7v7m0-7V7"></path></svg>
+                                Agent 3 (優化代理人): 六頂思考帽審視
+                            </h3>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                {% set hats = [
+                                    ('白帽 (事實)', 'white', 'bg-gray-50', 'border-gray-500', 'hat_white_hat'),
+                                    ('紅帽 (情感)', 'red', 'bg-red-50', 'border-red-500', 'hat_red_hat'),
+                                    ('黑帽 (風險)', 'black', 'bg-gray-200', 'border-gray-900', 'hat_black_hat'),
+                                    ('黃帽 (優勢)', 'yellow', 'bg-yellow-50', 'border-yellow-600', 'hat_yellow_hat'),
+                                    ('綠帽 (創意)', 'green', 'bg-green-50', 'border-green-600', 'hat_green_hat'),
+                                    ('藍帽 (流程)', 'blue', 'bg-indigo-50', 'border-indigo-600', 'hat_blue_hat')
+                                ] %}
+                                
+                                {% for name, hat_id, bg, border, field_name in hats %}
+                                    <!-- 修正：使用 selectattr 來避免迴圈變數作用域問題 -->
+                                    {% set suggestion_item = {} %}
+                                    {% if data.six_hats_suggestions %}
+                                        {% set found_items = data.six_hats_suggestions | selectattr("id", "equalto", hat_id) | list %}
+                                        {% if found_items %}
+                                            {% set suggestion_item = found_items[0] %}
+                                        {% endif %}
+                                    {% endif %}
+
+                                    <div class="hat-card {{ bg }} border-l-4 {{ border }} p-4 rounded-lg shadow-sm">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h4 class="text-lg font-bold text-gray-800">{{ name }}</h4>
+                                            
+                                            <!-- 帶入建議按鈕 -->
+                                            {% if suggestion_item.suggestion %}
+                                            <button type="button" 
+                                                    data-suggestion="{{ suggestion_item.suggestion | replace('\n', ' ') | replace("'", "&#39;") | replace('"', '&quot;') }}"
+                                                    onclick="useSuggestion('input-{{ field_name }}', this.getAttribute('data-suggestion'))"
+                                                    class="text-xs bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 px-3 py-1 rounded-full shadow-sm transition flex items-center">
+                                                <i class="fas fa-magic mr-1 text-purple-500"></i> 帶入 AI 建議
+                                            </button>
+                                            {% endif %}
+                                        </div>
+
+                                        <!-- AI 問題顯示區 (引導語) -->
+                                        {% if suggestion_item.q %}
+                                        <div class="mb-3 text-sm text-gray-600 bg-white/50 p-2 rounded border border-gray-200/50 italic">
+                                            <span class="font-bold text-gray-700 not-italic"><i class="fas fa-question-circle mr-1"></i>思考引導：</span>
+                                            {{ suggestion_item.q }}
+                                        </div>
+                                        {% endif %}
+
+                                        <textarea id="input-{{ field_name }}" name="{{ field_name }}" rows="3" class="w-full border border-gray-300 p-2 rounded text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white/80" placeholder="請輸入您的看法..." required></textarea>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="pt-6 border-t border-gray-200 mt-6 flex justify-end">
+                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-200">
+                                    完成優化並進入「最終產出」階段 →
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    {% endif %}
+
+                    <!-- Stage 5: 新想法 (最終產出) -->
+                    {% if current_stage == 5 %}
+                    <div class="bg-green-50 p-6 rounded-xl border-l-4 border-green-600 shadow-xl">
+                        <h2 class="text-2xl font-bold text-green-700 mb-4 flex items-center">
+                            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            最終產出：企劃書與視覺概念
+                        </h2>
+                        <div class="grid md:grid-cols-3 gap-6">
+                            <!-- 視覺概念圖 -->
+                            <div class="md:col-span-1">
+                                <h3 class="text-lg font-semibold text-gray-700 mb-2">視覺概念圖</h3>
+                                <div class="bg-gray-200 h-64 rounded-lg border border-green-300 flex items-center justify-center text-gray-500">
+                                    [示意圖：AI生成圖片]
+                                </div>
+                            </div>
+                            <!-- 企劃書內容 -->
+                            <div class="md:col-span-2 bg-white p-4 rounded-lg shadow-inner border border-green-200">
+                                <h3 class="text-lg font-semibold text-gray-700 mb-4">企劃摘要</h3>
+                                <div class="prose max-w-none text-gray-700 whitespace-pre-line">
+                                    {{ data.final_proposal }}
+                                </div>
+                            </div>
+                        </div>
+                        <form action="{{ url_for('main.reset') }}" method="POST" class="mt-8">
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-200">
+                                重新啟動新的創新流程
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 
+      修正 JS 變數傳遞：
+      將後端資料放入 hidden script block，避免 IDE 語法檢查報錯。
+    -->
+    <script type="application/json" id="random-words-data">
+        {{ data.random_words | default([]) | tojson | safe }}
+    </script>
+
+    <!-- JS 邏輯 -->
+    <script>
+        const js_current_stage = parseInt('{{ current_stage | default(1) }}');
+        
+        // --- Stage 2 & 3: 顯示/隱藏提示 ---
+        function toggleHint(id) {
+            const hintBox = document.getElementById(id);
+            if (hintBox) {
+                hintBox.classList.toggle('show');
+            }
+        }
+
+        // --- Stage 2 & 3: 自動填入建議 ---
+        function useSuggestion(inputId, suggestionText) {
+            const inputField = document.getElementById(inputId);
+            if (inputField) {
+                if (inputField.value.trim() !== "") {
+                    if (!confirm("確定要使用建議回覆覆蓋您當前的輸入嗎？")) {
+                        return;
+                    }
+                }
+                inputField.value = suggestionText;
+                inputField.classList.add('border-green-500', 'ring-2', 'ring-green-200');
+                // 聚焦讓使用者知道哪裡變了
+                inputField.focus();
+                setTimeout(() => {
+                    inputField.classList.remove('border-green-500', 'ring-2', 'ring-green-200');
+                }, 800);
+            }
+        }
+
+        // --- Stage 3: 選擇解方 (狀態 A) ---
+        function selectSolution(id) {
+            document.querySelectorAll('.solution-card').forEach(el => {
+                el.classList.remove('selected', 'border-green-500', 'bg-green-50');
+                el.classList.add('border-gray-200', 'bg-white');
+                const label = el.querySelector('label');
+                if(label) {
+                    label.classList.remove('text-green-700');
+                    label.classList.add('text-gray-700');
+                }
+            });
+
+            const card = document.getElementById(id);
+            if(card) {
+                card.classList.add('selected', 'border-green-500', 'bg-green-50');
+                card.classList.remove('border-gray-200', 'bg-white');
+                const label = card.querySelector('label');
+                if(label) {
+                    label.classList.add('text-green-700');
+                    label.classList.remove('text-gray-700');
+                }
+                const radio = document.getElementById('radio-' + id);
+                if(radio) radio.checked = true;
+            }
+        }
+
+        // --- Stage 3: Random Words Logic (狀態 B) ---
+        // 從 DOM 讀取資料，避開 JS 語法檢查錯誤
+        const randomWordsScript = document.getElementById('random-words-data');
+        let randomWords = [];
+        try {
+            if(randomWordsScript && randomWordsScript.textContent.trim()) {
+                const rawContent = randomWordsScript.textContent.trim();
+                
+                // 檢測是否為未渲染的 Jinja2 模板 (例如在靜態預覽模式下)
+                // 使用 split/join 或字串拼接來避免 Jinja2 解析錯誤 (避免直接寫出兩個左大括號)
+                if (rawContent.includes('{'+'{') || rawContent.includes('data.random_words')) {
+                    console.log("偵測到未渲染的模板，切換至預覽模式資料。");
+                    // 預覽用的假資料
+                    randomWords = ["創新", "藍海", "策略", "使用者", "體驗", "設計", "思考", "原型"]; 
+                } else {
+                    randomWords = JSON.parse(rawContent);
+                }
+            }
+        } catch(e) {
+            console.error("Failed to parse random words:", e);
+            // 發生錯誤時的備用空陣列，防止程式崩潰
+            randomWords = [];
+        }
+
+        let currentWordIndex = -1;
+
+        function nextRandomWord() {
+            if (!randomWords || randomWords.length === 0) {
+                const textEl = document.getElementById('current-random-word');
+                if(textEl) textEl.innerText = "無資料";
+                return;
+            }
+
+            const displayEl = document.getElementById('random-word-display');
+            const textEl = document.getElementById('current-random-word');
+
+            // 簡單的淡出淡入動畫
+            displayEl.classList.remove('word-fade-enter-active');
+            displayEl.classList.add('word-fade-enter');
+
+            setTimeout(() => {
+                // 隨機選取，避免重複
+                let nextIndex;
+                if (randomWords.length > 1) {
+                    do {
+                        nextIndex = Math.floor(Math.random() * randomWords.length);
+                    } while (nextIndex === currentWordIndex);
+                } else {
+                    nextIndex = 0;
+                }
+                currentWordIndex = nextIndex;
+                textEl.innerText = randomWords[currentWordIndex];
+
+                displayEl.classList.remove('word-fade-enter');
+                displayEl.classList.add('word-fade-enter-active');
+            }, 300); // 配合 CSS transition 時間
+        }
+
+        // 初始化 Random Word (如果有資料)
+        document.addEventListener('DOMContentLoaded', () => {
+            if (randomWords && randomWords.length > 0) {
+                nextRandomWord();
+            }
+        });
+
+        // --- 新增：AJAX 呼叫 AI 生成優化概念 ---
+        function generateAIConcept() {
+            // 1. 收集資料
+            const scamperInputs = document.querySelectorAll('.scamper-input');
+            const scamperData = {};
+            scamperInputs.forEach(input => {
+                // 取得類似 "S", "C" 的 key
+                const key = input.name.replace('scamper_', '').toUpperCase(); 
+                scamperData[key] = input.value;
+            });
+
+            const randomWord = document.getElementById('current-random-word').innerText;
+            const userDraft = document.getElementById('user-concept-input').value;
+
+            // 2. UI 狀態更新 (Loading)
+            const btn = document.getElementById('btn-ai-assist');
+            const btnText = document.getElementById('ai-btn-text');
+            const loader = document.getElementById('ai-btn-loader');
+            const resultBox = document.getElementById('ai-concept-result');
+            const resultText = document.getElementById('ai-concept-text');
+
+            btn.disabled = true;
+            btnText.innerText = "AI 思考中...";
+            loader.classList.remove('hidden');
+            resultBox.classList.add('hidden');
+
+            // 3. 發送 AJAX 請求
+            fetch('/api/generate_ai_concept', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    scamper_ideas: scamperData,
+                    random_word: randomWord,
+                    user_draft: userDraft
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 顯示結果
+                    resultText.innerText = data.concept;
+                    resultBox.classList.remove('hidden');
+                } else {
+                    alert('生成失敗：' + (data.message || '未知錯誤'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('發生網路錯誤，請稍後再試。');
+            })
+            .finally(() => {
+                // 還原按鈕狀態
+                btn.disabled = false;
+                btnText.innerText = "✨ AI 幫我優化概念";
+                loader.classList.add('hidden');
+            });
+        }
+
+        // --- 新增：初步概念表單驗證 ---
+        function validateConceptForm(event) {
+            const input = document.getElementById('user-concept-input');
+            // 檢查是否存在且去除空白後是否為空字串
+            if (!input || !input.value.trim()) {
+                alert("請務必輸入您的初步概念，才能進入下一階段喔！\n(如果卡關了，可以試試點擊上方「✨ AI 幫我優化概念」來獲得靈感)");
+                
+                if (input) {
+                    input.focus(); // 將游標移回輸入框
+                    // 加上紅框提醒
+                    input.classList.add('ring-2', 'ring-red-400', 'border-red-400');
+                    setTimeout(() => {
+                        input.classList.remove('ring-2', 'ring-red-400', 'border-red-400');
+                    }, 2000);
+                }
+                
+                event.preventDefault(); // 阻止表單送出
+                return false;
+            }
+            return true;
+        }
+
+    </script>
+{% endblock %}

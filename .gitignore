@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+env/
+.venv/
+.env
+.DS_Store
+.idea/
+.vscode/
+
+
+test.py
+/app/routes_test.py
+/app/templates/test.html
+/app/templates/t_index.html
+/app/templates/project.html
+/app/output_data/
