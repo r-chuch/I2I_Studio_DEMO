@@ -1,3 +1,5 @@
+# app/services/agents/agent2_creativity.py
+
 import json
 from pathlib import Path
 from typing import List, Dict, Any
@@ -7,162 +9,11 @@ import time
 
 # import base_agent as ba
 import app.services.agents.base_agent as ba
+from app.services.prompt_templates import AGENT2_GEN_PAIN_POINT, AGENT2_GEN_SCAMPER, AGENT2_GEN_REFINED_CONCEPT
 
 
 OUTPUT_DIR = Path.cwd() / "app" / "output_data"
 
-# --- PROMPT 1: 痛點分析 ---
-AGENT2_GEN_PAIN_POINT = """
-你是資深產品洞察分析師（Product Insight Analyst）。以下輸入內容是影片相關的問答資料陣列，每筆包含 
--id:問題順序 
--question:對影片內容的痛點洞察所以提出的問題
--hint:關於該問題的提示
--suggestion:關於該問題的建議回覆
--evidence:資料來源
--answer:使用者針對問題進行發想後的回答
-
-任務規則：
-從這些資料整合出「使用者發現關於這部影片內容所隱含的痛點」，並針對該痛點提出 3 個可能的現有解決方案或產品（名詞），最後以嚴格的 JSON 格式輸出。
-
-處理步驟（請在內部依序執行，但輸出僅為最後的 JSON）：
-1) 痛點分析：
-   - 逐筆閱讀每個物件，擷取關鍵片段：使用者答案(answer)、question 與 evidence。
-   - 找出資料中出現頻率最高或最有一致性的議題，整合為單一「痛點主題」。
-   - 痛點描述需為繁體中文，介於 30 到 80 個中文字，採中性、可被引用的表述。
-2) 解決方案發想：
-   - 針對上述歸納的痛點，聯想 3 個「現有的解決方案、產品類別或具體工具」。
-   - 解決方案必須是「名詞」或「短詞」（例如：「番茄鐘App」、「降噪耳機」、「專案管理軟體」）。
-3) 格式化輸出：
-   - 將結果封裝為 JSON。
-
-輸入資料：
-{qa_list}
-
-輸出規格（嚴格遵守）：
-1. 僅輸出一個標準 JSON 字串。
-2. 絕對不要使用 Markdown 格式（禁止使用 ```json 或 ``` 包裹）。
-3. 輸出的第一個字元必須是 "{"，最後一個字元必須是 "}"。
-4. JSON 結構必須如下：
-{{
-    "pain_point": "<痛點主題的詳細描述>",
-    "solutions": [
-        "<解決方案名詞1>",
-        "<解決方案名詞2>",
-        "<解決方案名詞3>"
-    ]
-}}
-
-若輸入資料為空或無法判斷，請輸出：
-{{
-    "pain_point": "無足夠資料判斷痛點",
-    "solutions": []
-}}
-
-現在開始處理，請直接輸出 JSON 字串：
-"""
-
-# --- PROMPT 2: SCAMPER 與 強力組合單詞生成 ---
-AGENT2_GEN_SCAMPER = """
-你是資深創意引導師（Creative Facilitator）。
-目前的使用者痛點是：「{pain_point}」
-使用者選擇作為參考的現有解決方案是：「{selected_solution}」
-
-你的任務包含兩部分：
-
-任務一：生成 SCAMPER 引導提問與建議回覆
-針對該「現有解決方案」，提出 SCAMPER 七個維度的引導提問，並針對每個提問提供一個「建議回覆」（參考點子）。
-目的是激發使用者改良此方案以解決痛點。
-提問必須「具體」且「針對性強」，請不要只給通用的定義，而是要結合解方的情境。
-建議回覆則提供一個具體的創意範例，引導使用者思考。
-
-   - Substitute (替代): 有什麼成分、規則、受眾或技術可以被替代？
-   - Combine (合併): 能與什麼功能、外部服務或異業合併？
-   - Adapt (調整): 有什麼其他領域（如自然界、其他產業）的點子可以借用？
-   - Modify (修改): 改變形狀、屬性、大小或體驗流程會如何？
-   - Put to other uses (其他用途): 這個解方還能用在什麼完全不同的場景或對象？
-   - Eliminate (消除): 有什麼非核心的功能、成本或步驟可以剔除以簡化體驗？
-   - Reverse (重組/反向): 如果把流程倒過來做，或重新安排因果順序會怎樣？
-
-任務二：生成 15 個強力組合（Forced Connection）單詞
-請提供 15 個「完全不相關」、「具象」且「隨機」的名詞（Random Nouns）。
-   - 這些詞將用於強迫使用者進行創意的「強制關聯」，所以越跳躍、越具體越好。
-   - 範例：火山、仙人掌、保險箱、外星人、薩克斯風、水母、積木...
-   - 避免使用抽象名詞（如：愛、和平、效率），請給予視覺化強的物件。
-
-輸出規格（嚴格遵守）：
-1. 僅輸出一個標準 JSON 字串。
-2. 絕對不要使用 Markdown 格式（禁止使用 ```json 或 ``` 包裹）。
-3. JSON 結構必須如下：
-{{
-    "scamper_questions": {{
-        "S": {{
-            "question": "針對{selected_solution}的替代性提問...",
-            "suggestion": "針對該提問的一個建議回覆範例..."
-        }},
-        "C": {{
-            "question": "針對{selected_solution}的合併性提問...",
-            "suggestion": "針對該提問的一個建議回覆範例..."
-        }},
-        "A": {{
-            "question": "針對{selected_solution}的調整性提問...",
-            "suggestion": "針對該提問的一個建議回覆範例..."
-        }},
-        "M": {{
-            "question": "針對{selected_solution}的修改性提問...",
-            "suggestion": "針對該提問的一個建議回覆範例..."
-        }},
-        "P": {{
-            "question": "針對{selected_solution}的其他用途提問...",
-            "suggestion": "針對該提問的一個建議回覆範例..."
-        }},
-        "E": {{
-            "question": "針對{selected_solution}的消除性提問...",
-            "suggestion": "針對該提問的一個建議回覆範例..."
-        }},
-        "R": {{
-            "question": "針對{selected_solution}的反向性提問...",
-            "suggestion": "針對該提問的一個建議回覆範例..."
-        }}
-    }},
-    "random_words": [
-        "名詞1", "名詞2", "名詞3", "名詞4", "名詞5", 
-        "名詞6", "名詞7", "名詞8", "名詞9", "名詞10", 
-        "名詞11", "名詞12", "名詞13", "名詞14", "名詞15"
-    ]
-}}
-
-現在開始處理，請直接輸出 JSON 字串：
-"""
-
-AGENT2_GEN_REFINED_CONCEPT = """
-你是資深產品經理與創新顧問。
-請根據以下資訊，協助使用者將零散的創意收斂為一個具體、有吸引力的「新產品概念草案」。
-
-【背景資訊】
-1. 痛點: {pain_point}
-2. 原型解方: {selected_solution}
-
-【使用者發想素材】
-3. SCAMPER 發想內容: 
-{scamper_ideas}
-
-4. 強制關聯詞 (Random Word): {random_word}
-   (請思考如何將這個詞彙的「特性」、「意象」或「運作原理」融入產品概念中，作為創意的亮點)
-
-5. 使用者目前的初步想法: 
-{user_draft}
-
-【任務】
-請綜合上述所有素材，生成一段約 150~250 字的產品概念描述。
-這個概念必須：
-- 具體解決上述痛點。
-- 巧妙融合「強制關聯詞」的元素（可以是功能上的、視覺上的或比喻上的）。
-- 整合使用者的 SCAMPER 點子。
-- 語氣需充滿熱情且具說服力。
-
-【輸出格式】
-請直接輸出一段純文字（不要 Markdown，不要 JSON），作為給使用者的建議。
-"""
 
 class Agent2Creativity():
     name = "agent2_creativity"
