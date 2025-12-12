@@ -5,6 +5,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Font Awesome 用於圖標 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <!-- 引入 Marked.js 用於 Markdown 渲染 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+TC:wght@100..900&display=swap');
@@ -93,6 +95,100 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        /* 企劃書 A4 紙張風格 */
+        .proposal-paper {
+            background-color: white;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            padding: 3rem;
+            max-width: 210mm; /* A4 width approximate */
+            margin: 0 auto;
+            min-height: 297mm; /* A4 height approximate */
+            position: relative;
+        }
+        /* Markdown Styles for Proposal */
+        .proposal-content h1 { 
+            font-size: 2.25em; 
+            font-weight: 800; 
+            margin-bottom: 1em; 
+            color: #1a202c; 
+            border-bottom: 2px solid #3182ce;
+            padding-bottom: 0.5em;
+            text-align: center;
+        }
+        .proposal-content h2 { 
+            font-size: 1.5em; 
+            font-weight: 700; 
+            margin-top: 1.5em; 
+            margin-bottom: 0.75em; 
+            color: #2c5282; 
+            display: flex;
+            align-items: center;
+        }
+        .proposal-content h2::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 1.5em;
+            background-color: #4299e1;
+            margin-right: 0.5em;
+            border-radius: 2px;
+        }
+        .proposal-content h3 { 
+            font-size: 1.25em; 
+            font-weight: 600; 
+            margin-top: 1em; 
+            margin-bottom: 0.5em; 
+            color: #4a5568; 
+        }
+        .proposal-content ul { 
+            list-style-type: disc; 
+            padding-left: 1.5em; 
+            margin-bottom: 1em; 
+            color: #4a5568;
+        }
+        .proposal-content li { 
+            margin-bottom: 0.5em; 
+            line-height: 1.6;
+        }
+        .proposal-content p { 
+            margin-bottom: 1em; 
+            line-height: 1.75; 
+            color: #4a5568;
+            text-align: justify;
+        }
+        .proposal-content strong {
+            color: #2d3748;
+            font-weight: 700;
+        }
+
+        /* --- 新增：企劃書表格樣式 --- */
+        .proposal-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1em;
+            margin-bottom: 1.5em;
+            border: 2px solid #cbd5e0; /* 外框加粗 */
+            font-size: 0.95em;
+        }
+        .proposal-content th, .proposal-content td {
+            border: 1px solid #cbd5e0; /* 格線 */
+            padding: 0.75rem;
+            text-align: left;
+            vertical-align: top;
+        }
+        .proposal-content th {
+            background-color: #ebf8ff; /* 標題背景色 (淺藍) */
+            color: #2b6cb0; /* 標題文字色 (深藍) */
+            font-weight: 700;
+            border-bottom: 2px solid #a0aec0; /* 標題下緣加粗 */
+        }
+        .proposal-content tr:nth-child(even) {
+            background-color: #f7fafc; /* 斑馬紋背景 */
+        }
+        .proposal-content tr:hover {
+            background-color: #edf2f7; /* 滑鼠懸停效果 */
         }
     </style>
 
@@ -216,6 +312,7 @@
                                                 class="text-xs bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1 rounded-full flex items-center transition">
                                             <i class="fas fa-lightbulb mr-1"></i> 顯示提示
                                         </button>
+                                        <!-- 修正：使用單引號並跳脫，避免與 HTML 屬性雙引號衝突 -->
                                         <button type="button" 
                                                 data-suggestion="{{ why.suggestion | replace('\n', ' ') | replace("'", "&#39;") | replace('"', '&quot;') }}"
                                                 onclick="useSuggestion('input-why-{{ why.id }}', this.getAttribute('data-suggestion'))" 
@@ -511,30 +608,42 @@
 
                     <!-- Stage 5: 新想法 (最終產出) -->
                     {% if current_stage == 5 %}
-                    <div class="bg-green-50 p-6 rounded-xl border-l-4 border-green-600 shadow-xl">
-                        <h2 class="text-2xl font-bold text-green-700 mb-4 flex items-center">
-                            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            最終產出：企劃書與視覺概念
-                        </h2>
-                        <div class="grid md:grid-cols-3 gap-6">
-                            <!-- 視覺概念圖 -->
-                            <div class="md:col-span-1">
-                                <h3 class="text-lg font-semibold text-gray-700 mb-2">視覺概念圖</h3>
-                                <div class="bg-gray-200 h-64 rounded-lg border border-green-300 flex items-center justify-center text-gray-500">
-                                    [示意圖：AI生成圖片]
-                                </div>
-                            </div>
-                            <!-- 企劃書內容 -->
-                            <div class="md:col-span-2 bg-white p-4 rounded-lg shadow-inner border border-green-200">
-                                <h3 class="text-lg font-semibold text-gray-700 mb-4">企劃摘要</h3>
-                                <div class="prose max-w-none text-gray-700 whitespace-pre-line">
-                                    {{ data.final_proposal }}
-                                </div>
+                    <div class="space-y-8">
+                        <!-- 區塊 1: 最終定案構想 -->
+                        <div class="bg-gradient-to-r from-green-50 to-emerald-50 p-8 rounded-xl border-l-8 border-green-500 shadow-lg">
+                            <h2 class="text-2xl font-bold text-green-800 mb-4 flex items-center">
+                                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                                最終定案構想 (Final Concept)
+                            </h2>
+                            <div class="text-lg text-gray-700 leading-relaxed text-justify">
+                                {{ data.final_concept_text | default("構想整合中...") | replace('\n', '<br>') | safe }}
                             </div>
                         </div>
-                        <form action="{{ url_for('main.reset') }}" method="POST" class="mt-8">
-                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-200">
-                                重新啟動新的創新流程
+
+                        <!-- 區塊 2: 一頁式企畫書 (A4 紙張質感) -->
+                        <div class="bg-gray-100 p-4 md:p-8 rounded-xl">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 class="text-xl font-bold text-gray-600 uppercase tracking-wider flex items-center">
+                                    <i class="fas fa-file-alt mr-2"></i> 一頁式企畫書 (One-Page Proposal)
+                                </h3>
+                                <!-- 未來可擴充：列印或下載按鈕 -->
+                                <!-- <button class="text-sm bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-50 text-gray-600"><i class="fas fa-print mr-1"></i> 列印</button> -->
+                            </div>
+                            
+                            <!-- 模擬 A4 紙張 -->
+                            <div class="proposal-paper">
+                                <!-- 隱藏的原始 Markdown -->
+                                <div id="markdown-content" class="hidden">
+                                    {{ data.final_proposal }}
+                                </div>
+                                <!-- 渲染後的內容容器 -->
+                                <div id="rendered-content" class="proposal-content"></div>
+                            </div>
+                        </div>
+
+                        <form action="{{ url_for('main.reset') }}" method="POST" class="mt-12 text-center">
+                            <button type="submit" class="bg-gray-600 hover:bg-gray-800 text-white font-bold py-3 px-10 rounded-full shadow-lg transition duration-200 transform hover:scale-105">
+                                <i class="fas fa-redo-alt mr-2"></i> 重新啟動新的創新流程
                             </button>
                         </form>
                     </div>
@@ -557,6 +666,23 @@
     <script>
         const js_current_stage = parseInt('{{ current_stage | default(1) }}');
         
+        // --- Stage 5: Markdown Rendering ---
+        document.addEventListener('DOMContentLoaded', () => {
+            if (js_current_stage === 5) {
+                const mdContent = document.getElementById('markdown-content');
+                const targetDiv = document.getElementById('rendered-content');
+                if (mdContent && targetDiv && typeof marked !== 'undefined') {
+                    // 獲取原始 Markdown 文字 (去除多餘空白)
+                    const rawText = mdContent.textContent.trim();
+                    if(rawText) {
+                        targetDiv.innerHTML = marked.parse(rawText);
+                    } else {
+                        targetDiv.innerHTML = "<p class='text-gray-400 italic text-center py-10'>尚無企劃內容，請確認流程是否完整執行。</p>";
+                    }
+                }
+            }
+        });
+
         // --- Stage 2 & 3: 顯示/隱藏提示 ---
         function toggleHint(id) {
             const hintBox = document.getElementById(id);

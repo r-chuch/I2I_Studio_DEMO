@@ -63,16 +63,6 @@ def get_video_id(url):
     if match: return match.group(1)
     return None
 
-# --- [模擬 AI Agent] Stage 5 邏輯 ---
-
-def ai_generate_stage5_proposal(concept, hats_input):
-    return f"""
-    基於您的概念「{concept}」以及六頂思考帽的優化：
-    我們將推出一個結合社區力量與 AI 輔助的混合型服務。
-    重點在於解決使用者的恐懼感（參考黑帽觀點：{hats_input.get('hat_black_hat', '')}），
-    並放大情感連結的價值（參考紅帽觀點：{hats_input.get('hat_red_hat', '')}）。
-    """
-
 def ai_generate_stage2_whys(video_id):
     ag1 = Agent1Insight()
     ag1.text_gen(video_id)
@@ -294,6 +284,7 @@ def generate_concept():
 def optimize_proposal():
     workflow_data = load_workflow_data()
     
+    # 收集使用者在六頂思考帽階段填寫的內容
     hats_data = {
         'hat_white_hat': request.form.get('hat_white_hat'),
         'hat_red_hat': request.form.get('hat_red_hat'),
@@ -304,10 +295,24 @@ def optimize_proposal():
     }
     workflow_data['hat_inputs'] = hats_data
     
-    workflow_data['final_proposal'] = ai_generate_stage5_proposal(
-        workflow_data.get('user_prelim_concept', ''), 
-        hats_data
-    )
+    # 取得要優化的概念（優先使用 Stage 4 AI 優化過的，若無則用最初的）
+    concept = workflow_data.get('refined_concept', workflow_data.get('user_prelim_concept', ''))
+    
+    # 呼叫 Agent 3 生成最終企劃書 (回傳 tuple: final_concept, final_proposal)
+    ag3 = Agent3Optimize()
+    try:
+        # 注意這裡接收兩個回傳值
+        final_concept_text, final_proposal_md = ag3.gen_final_proposal(concept, hats_data)
+        
+        # 分開儲存
+        workflow_data['final_concept_text'] = final_concept_text
+        workflow_data['final_proposal'] = final_proposal_md
+        
+    except Exception as e:
+        print(f"Agent 3 Final Proposal Error: {e}")
+        flash("生成最終企劃書時發生錯誤，請稍後再試。", "error")
+        workflow_data['final_proposal'] = "生成失敗，請重試。"
+        workflow_data['final_concept_text'] = concept # Fallback
     
     save_workflow_data(workflow_data)
     session['max_stage'] = max(session.get('max_stage', 1), 5)

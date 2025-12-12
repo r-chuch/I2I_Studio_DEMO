@@ -41,7 +41,7 @@ def get_youtube_transcript(url):
     print(f"🔍 影片 ID：{video_id}")
 
     try:
-        transcript = YouTubeTranscriptApi().fetch(video_id,languages=['zh-TW', 'zh', 'zh-CN','en'])
+        transcript = YouTubeTranscriptApi().fetch(video_id,languages=['zh-Hant','zh-TW', 'zh', 'zh-CN','en-US'])
         print("✅ 成功取得字幕！")
 
         # 新版 API 回傳 snippet 物件
