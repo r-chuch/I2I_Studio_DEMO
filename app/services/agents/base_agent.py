@@ -46,4 +46,3 @@ def gen_response(prompt,system="請用台灣習慣的中文回覆。",
     print(response.choices[0].message.content)
     print('===========================================================')
     return response.choices[0].message.content
-
