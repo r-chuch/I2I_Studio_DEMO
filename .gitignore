@@ -16,6 +16,7 @@ test.py
 /app/output_data/
 /.gemini/
 
+.claude/
 CLAUDE.md
 plan.md
 projArc.md
@@ -23,3 +24,4 @@ Project_Report.md
 專案構思.pdf
 speech.txt
 final.txt
+
